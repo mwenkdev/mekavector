@@ -6,13 +6,24 @@ MekaVector is a small **companion mixin mod** (not a fork of Mekanism) that give
 the Mekanism jetpack on Forge 1.20.1 the flight *feel* it has in Mekanism 1.21.x:
 
 1. **Forward boost in normal flight** — while jetpacking you move faster than
-   sprint speed horizontally (matches 1.21 normal mode).
-2. **Keybind-gated vector thrust** — hold the **Vector Thrust** key (default `V`)
-   and the jetpack thrusts along your **look vector**: point where you want to go
-   and fly there (matches 1.21 Vector mode's feel).
-3. **Sneak-to-pillar** — while vector thrust is engaged, hold sneak to revert to
-   vertical-only thrust so you can still pillar straight up (mirrors 1.21's
-   "hold shift in vector mode behaves as normal").
+   sprint speed horizontally (matches 1.21 normal mode). Applies in Normal and
+   Hover, whenever the jetpack is actually thrusting.
+2. **Keybind-gated vector thrust** — in **Normal mode**, hold the **Vector Thrust**
+   key (default `V`) and the jetpack thrusts along your **look vector**: point
+   where you want to go and fly there (matches 1.21 Vector mode's feel). Fuel
+   drains and flames/sound play while vectoring.
+
+### Normal-mode controls
+
+| Input | Result |
+|---|---|
+| nothing | jetpack off, fall normally |
+| Space | stock straight-up thrust (capped) + horizontal forward boost |
+| V | look-vector thrust |
+| Space + V | **Space wins** — stock straight-up thrust, no vector |
+
+**Hover mode is fully stock** — `V` is ignored there (the horizontal forward boost
+still applies). There is no sneak-to-pillar: Space serves that role now.
 
 Mekanism's jar is **never modified**. This mod loads *after* Mekanism and weaves
 into its compiled classes at runtime via SpongePowered Mixin, plus vanilla
@@ -107,18 +118,30 @@ sprint and losing an independent toggle.
 ## How it works (mixins)
 
 - `HorizontalBoostMixin` → vanilla `LivingEntity#aiStep` (after `travel`): adds
-  yaw-rotated forward/strafe thrust. Pure-vanilla injection site; only reads
-  Mekanism statics to know a jetpack is active.
-- `VectorThrustCommonMixin` / `VectorThrustClientMixin` → `@Redirect` the
-  `IJetpackItem.handleJetpackMotion` call in Mekanism's server
-  (`CommonPlayerTickHandler#tickEnd`) and client (`ClientTickHandler#tickStart`)
-  tick handlers. When vector is engaged we substitute look-vector motion;
-  otherwise we call the stock method unchanged, so Normal/Hover are untouched and
-  Mekanism's vertical logic is never frozen.
+  yaw-rotated forward/strafe thrust (config is blocks/second, converted to
+  per-tick). Pure-vanilla injection site; only reads Mekanism statics, and gates
+  on Mekanism's *effective* mode (`getPlayerJetpackMode`) so it never fires while
+  walking.
+- `VectorThrustCommonMixin` / `VectorThrustClientMixin` → `@Redirect`s on Mekanism's
+  server (`CommonPlayerTickHandler#tickEnd`) and client (`ClientTickHandler#tickStart`)
+  tick handlers:
+  - `handleJetpackMotion` → substitute look-vector motion when vector is engaged
+    (Normal mode, `V`, Space not held); otherwise call the stock method unchanged,
+    so Hover and Space-thrust are untouched and Mekanism's vertical logic is never
+    frozen.
+  - `getPlayerJetpackMode` → turn `DISABLED` into `NORMAL` when vector is engaged.
+    Mekanism gates the whole jetpack block on this returning non-`DISABLED` (which
+    requires Space in Normal mode), so without this redirect `V`-only would never
+    reach the motion call. Forcing it on also drains fuel and plays flames/sound —
+    correct, since we are thrusting.
+  - `isJetpackInUse` (client only) → a second client-side short-circuit that also
+    requires Space in Normal mode; redirected the same way so `V`-only runs.
 
-Redirecting the two concrete call sites (rather than the `static` interface method
+Redirecting these concrete call sites (rather than the `static` interface method
 `handleJetpackMotion` itself) avoids Mixin's static-interface-method friction and
-needs no MixinExtras.
+needs no MixinExtras. Each handler can safely call the stock method it redirects —
+`@Redirect` only rewrites the one invoke inside the target method, not the handler's
+own call.
 
 ## Distribution (packwiz)
 

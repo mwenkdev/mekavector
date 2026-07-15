@@ -25,9 +25,13 @@ public final class VectorThrust {
      * contract, so the caller's {@code resetFallDistance()} branch still fires).
      */
     public static boolean handle(Player player, JetpackMode mode, BooleanSupplier ascendingSupplier) {
-        // Sneak-to-pillar: while vectoring, holding shift reverts to stock vertical
-        // thrust (pillar straight up). Fall-flying keeps Mekanism's elytra boost.
-        if (JetpackState.isVectorActive(player) && !player.isShiftKeyDown() && !player.isFallFlying()) {
+        // Vector applies only in NORMAL mode (HOVER stays fully stock) and only
+        // when Space is NOT held — Space wins and yields stock straight-up thrust.
+        // Fall-flying keeps Mekanism's elytra boost.
+        if (mode == JetpackMode.NORMAL
+                && !player.isFallFlying()
+                && JetpackState.isVectorActive(player)
+                && !ascendingSupplier.getAsBoolean()) {
             double thrust = Config.vectorThrust();
             Vec3 look = player.getLookAngle();
             Vec3 motion = player.getDeltaMovement();

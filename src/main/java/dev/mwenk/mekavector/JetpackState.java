@@ -1,6 +1,7 @@
 package dev.mwenk.mekavector;
 
 import dev.mwenk.mekavector.net.ServerVectorState;
+import java.util.function.BooleanSupplier;
 import mekanism.common.Mekanism;
 import mekanism.common.base.KeySync;
 import mekanism.common.item.interfaces.IJetpackItem;
@@ -56,5 +57,18 @@ public final class JetpackState {
             return LOCAL_VECTOR_ACTIVE;
         }
         return ServerVectorState.isActive(player.getUUID());
+    }
+
+    /**
+     * @return true when this player should be vectoring: the Vector key is engaged,
+     * the jetpack is in NORMAL mode, and Space (ascend) is NOT held (Space wins).
+     * Used to force Mekanism's DISABLED gate to NORMAL so the jetpack block runs
+     * even without Space, letting look-vector thrust, fuel drain, and flames fire.
+     */
+    public static boolean isVectorEngaged(Player player, JetpackMode primaryMode, BooleanSupplier ascending) {
+        return primaryMode == JetpackMode.NORMAL
+                && !player.isSpectator()
+                && isVectorActive(player)
+                && !ascending.getAsBoolean();
     }
 }
