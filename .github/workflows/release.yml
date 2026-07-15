@@ -1,0 +1,84 @@
+name: Release Mod
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0, 1.1.0)'
+        required: true
+        type: string
+      notes:
+        description: 'Release notes (what changed)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Minecraft 1.20.1 targets Java 17. build.gradle already pins the compile
+      # toolchain to 17; this makes the daemon match so ForgeGradle's decompile
+      # step never sees a newer JDK.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Build
+        run: ./gradlew build --no-daemon -Pmod_version=${{ inputs.version }}
+
+      # Fail loudly rather than shipping a jar that won't load in-game.
+      - name: Verify jar targets Java 17
+        run: |
+          JAR=build/libs/mekavector-${{ inputs.version }}-mc1.20.1.jar
+          test -f "$JAR" || { echo "::error::$JAR not found"; ls -la build/libs; exit 1; }
+          unzip -o -q "$JAR" -d /tmp/mv
+          MAJOR=$(javap -verbose -cp /tmp/mv dev.mwenk.mekavector.VectorThrust | grep -oP 'major version: \K\d+')
+          echo "class file major version: $MAJOR"
+          [ "$MAJOR" = "61" ] || { echo "::error::expected 61 (Java 17), got $MAJOR"; exit 1; }
+
+      - name: Compute checksum
+        id: hash
+        run: |
+          JAR=build/libs/mekavector-${{ inputs.version }}-mc1.20.1.jar
+          echo "sha256=$(sha256sum "$JAR" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "sha512=$(sha512sum "$JAR" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: MekaVector v${{ inputs.version }}
+          body: |
+            ${{ inputs.notes }}
+
+            ---
+            **Requires:** Forge 1.20.1 (47.x) + Mekanism 10.4.x
+
+            `sha256: ${{ steps.hash.outputs.sha256 }}`
+
+            <details>
+            <summary>packwiz entry (<code>mods/mekavector.pw.toml</code>)</summary>
+
+            ```toml
+            name = "MekaVector"
+            filename = "mekavector-${{ inputs.version }}-mc1.20.1.jar"
+            side = "both"
+
+            [download]
+            url = "https://github.com/mwenkdev/mekavector/releases/download/v${{ inputs.version }}/mekavector-${{ inputs.version }}-mc1.20.1.jar"
+            hash-format = "sha256"
+            hash = "${{ steps.hash.outputs.sha256 }}"
+            ```
+            Then `packwiz refresh` in the pack repo and re-run its release workflow.
+            </details>
+          files: |
+            build/libs/mekavector-${{ inputs.version }}-mc1.20.1.jar
