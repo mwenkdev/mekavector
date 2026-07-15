@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+out/
+classes/
+
+# ForgeGradle / dev runtime
+run/
+runs/
+run_data/
+src/generated/resources/.cache/
+
+# Local jar fallback dir (kept out of VCS)
+libs/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+eclipse/
+bin/
+
+# OS
+.DS_Store

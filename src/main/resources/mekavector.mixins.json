@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "dev.mwenk.mekavector.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "mekavector.refmap.json",
+  "mixins": [
+    "HorizontalBoostMixin",
+    "VectorThrustCommonMixin"
+  ],
+  "client": [
+    "VectorThrustClientMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
