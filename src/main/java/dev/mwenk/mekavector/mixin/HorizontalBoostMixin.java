@@ -41,8 +41,9 @@ public abstract class HorizontalBoostMixin {
             return;
         }
 
-        double forwardBoost = Config.forwardSpeedBoost();
-        double strafeBoost = Config.strafeSpeedBoost();
+        // Config values are blocks/second; aiStep runs per-tick (20/s), so convert.
+        double forwardBoost = Config.forwardSpeedBoost() / 20.0D;
+        double strafeBoost = Config.strafeSpeedBoost() / 20.0D;
         if (forwardBoost == 0.0D && strafeBoost == 0.0D) {
             return;
         }
