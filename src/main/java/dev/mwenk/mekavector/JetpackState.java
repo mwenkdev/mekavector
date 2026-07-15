@@ -1,9 +1,10 @@
 package dev.mwenk.mekavector;
 
 import dev.mwenk.mekavector.net.ServerVectorState;
+import mekanism.common.Mekanism;
+import mekanism.common.base.KeySync;
 import mekanism.common.item.interfaces.IJetpackItem;
 import mekanism.common.item.interfaces.IJetpackItem.JetpackMode;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -25,19 +26,25 @@ public final class JetpackState {
     }
 
     /**
-     * @return true if the entity is wearing a usable jetpack whose selected mode
-     * is not DISABLED. This is the gate for the horizontal forward boost.
+     * @return true if the jetpack is actually thrusting the player right now.
+     * This mirrors Mekanism's own gate: {@link IJetpackItem#getPlayerJetpackMode}
+     * returns DISABLED for NORMAL unless jump is held, and for HOVER unless
+     * airborne — so the boost never applies while walking on the ground. This is
+     * the gate for the horizontal forward boost.
      */
-    public static boolean isJetpackActive(LivingEntity entity) {
-        ItemStack active = IJetpackItem.getActiveJetpack(entity);
+    public static boolean isJetpackActive(Player player) {
+        ItemStack active = IJetpackItem.getActiveJetpack(player);
         if (active.isEmpty()) {
             return false;
         }
-        ItemStack primary = IJetpackItem.getPrimaryJetpack(entity);
+        ItemStack primary = IJetpackItem.getPrimaryJetpack(player);
         if (primary.isEmpty() || !(primary.getItem() instanceof IJetpackItem jetpack)) {
             return false;
         }
-        return jetpack.getJetpackMode(primary) != JetpackMode.DISABLED;
+        JetpackMode primaryMode = jetpack.getJetpackMode(primary);
+        JetpackMode mode = IJetpackItem.getPlayerJetpackMode(player, primaryMode,
+                () -> Mekanism.keyMap.has(player.getUUID(), KeySync.ASCEND));
+        return mode != JetpackMode.DISABLED;
     }
 
     /**
