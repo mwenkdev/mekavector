@@ -50,9 +50,19 @@ public final class ClientSetup {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        // Not in-world, or a GUI is capturing input: treat as released so vector
-        // thrust can't get stuck on.
-        if (mc.player == null || mc.screen != null) {
+        // Left the world (kick, disconnect): reset local state directly. Do NOT go
+        // through setActive() — the connection is already gone, so sendVectorKey
+        // would NPE on a null connection. Also clears the toggle latch so we don't
+        // rejoin with vector still on.
+        if (mc.player == null) {
+            JetpackState.LOCAL_VECTOR_ACTIVE = false;
+            toggled = false;
+            lastSent = false;
+            return;
+        }
+        // Still connected but a GUI is capturing input: treat as released so vector
+        // thrust can't get stuck on. Safe to send.
+        if (mc.screen != null) {
             setActive(false);
             return;
         }
