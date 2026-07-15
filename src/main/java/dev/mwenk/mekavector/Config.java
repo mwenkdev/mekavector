@@ -11,26 +11,23 @@ public final class Config {
 
     public static final ForgeConfigSpec SPEC;
 
-    private static final ForgeConfigSpec.DoubleValue FORWARD_SPEED_BOOST;
-    private static final ForgeConfigSpec.DoubleValue STRAFE_SPEED_BOOST;
-    private static final ForgeConfigSpec.DoubleValue VECTOR_THRUST;
+    private static final ForgeConfigSpec.DoubleValue JETPACK_THRUST;
+    private static final ForgeConfigSpec.DoubleValue FORWARD_BOOST_FACTOR;
     private static final ForgeConfigSpec.BooleanValue VECTOR_KEYBIND_TOGGLE;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
         b.comment("mekavector — 1.21-style Mekanism jetpack flight").push("jetpack");
 
-        FORWARD_SPEED_BOOST = b
-                .comment("Horizontal forward thrust added while jetpacking. 0.0 = vanilla Mekanism behavior.")
-                .defineInRange("forward_speed_boost", 2.0D, 0.0D, 15.0D);
+        JETPACK_THRUST = b
+                .comment("Jetpack thrust per tick. 0.15 matches Mekanism 1.21's ItemJetpack.getJetpackThrust().",
+                        "Governs both NORMAL vertical climb and VECTOR thrust.")
+                .defineInRange("jetpack_thrust", 0.15D, 0.0D, 1.0D);
 
-        STRAFE_SPEED_BOOST = b
-                .comment("Horizontal strafe thrust added while jetpacking. 0.0 = no strafe boost.")
-                .defineInRange("strafe_speed_boost", 0.0D, 0.0D, 15.0D);
-
-        VECTOR_THRUST = b
-                .comment("Look-vector thrust strength while the Vector Thrust key is engaged.")
-                .defineInRange("vector_thrust", 0.5D, 0.0D, 5.0D);
+        FORWARD_BOOST_FACTOR = b
+                .comment("Fraction of current horizontal velocity added per tick while thrusting in",
+                        "NORMAL mode. 0.08 matches Mekanism 1.21. 0.0 = no forward boost.")
+                .defineInRange("forward_boost_factor", 0.08D, 0.0D, 0.5D);
 
         VECTOR_KEYBIND_TOGGLE = b
                 .comment("false = hold the key to engage vector thrust; true = press to toggle it.")
@@ -43,16 +40,12 @@ public final class Config {
     private Config() {
     }
 
-    public static double forwardSpeedBoost() {
-        return FORWARD_SPEED_BOOST.get();
+    public static double jetpackThrust() {
+        return JETPACK_THRUST.get();
     }
 
-    public static double strafeSpeedBoost() {
-        return STRAFE_SPEED_BOOST.get();
-    }
-
-    public static double vectorThrust() {
-        return VECTOR_THRUST.get();
+    public static double forwardBoostFactor() {
+        return FORWARD_BOOST_FACTOR.get();
     }
 
     public static boolean vectorKeybindToggle() {

@@ -5,29 +5,41 @@
 MekaVector is a small **companion mixin mod** (not a fork of Mekanism) that gives
 the Mekanism jetpack on Forge 1.20.1 the flight *feel* it has in Mekanism 1.21.x:
 
-1. **Forward boost in normal flight** — while jetpacking you move faster than
-   sprint speed horizontally (matches 1.21 normal mode). Applies in Normal and
-   Hover, whenever the jetpack is actually thrusting.
+1. **Forward boost in normal flight** — while thrusting in **Normal mode** the
+   jetpack adds a fraction of your *current* horizontal velocity each tick, so you
+   build up to roughly 3.5x sprint speed instead of being capped at it (this is
+   1.21's `0.08 * motion` term, verbatim). **Normal only** — 1.21's hover has no
+   horizontal term, and neither do we.
 2. **Keybind-gated vector thrust** — in **Normal mode**, hold the **Vector Thrust**
-   key (default `V`) and the jetpack thrusts along your **look vector**: point
-   where you want to go and fly there (matches 1.21 Vector mode's feel). Fuel
-   drains and flames/sound play while vectoring.
+   key (default `V`) and the jetpack thrusts along your head's **up-axis**, exactly
+   as 1.21's Vector mode does. Fuel drains and flames/sound play while vectoring.
 
 ### Normal-mode controls
 
 | Input | Result |
 |---|---|
 | nothing | jetpack off, fall normally |
-| Space | stock straight-up thrust (capped) + horizontal forward boost |
-| V | look-vector thrust |
-| Space + V | **Space wins** — stock straight-up thrust, no vector |
+| Space | straight-up thrust (self-limiting) + horizontal forward boost |
+| V | vector thrust along your up-axis |
+| Space + V | **Space wins** — straight-up thrust, no vector |
 
-**Hover mode is fully stock** — `V` is ignored there (the horizontal forward boost
-still applies). There is no sneak-to-pillar: Space serves that role now.
+**Vector is not point-and-go.** 1.21 thrusts along `getUpVector` — your head's up
+axis, not your look direction — so the thrust comes out of your back like a real
+jetpack:
+
+| Looking | Result |
+|---|---|
+| level | thrust straight up |
+| **down** | accelerate **forward** |
+| **up** | brake / reverse |
+
+**Hover mode is fully stock** — `V` is ignored there, and there is no horizontal
+boost. There is no sneak-to-pillar: Space serves that role now.
 
 Mekanism's jar is **never modified**. This mod loads *after* Mekanism and weaves
-into its compiled classes at runtime via SpongePowered Mixin, plus vanilla
-`LivingEntity` for the horizontal component.
+into its compiled classes at runtime via SpongePowered Mixin. It touches no vanilla
+classes — every mixin is a redirect on a Mekanism method, applied identically on
+both logical sides.
 
 > **Not a new jetpack mode.** There is no real fourth `VECTOR` enum entry — the
 > HUD still shows Normal/Hover. Vector thrust is a keybind that reproduces the
@@ -84,20 +96,19 @@ Generated on first run at `config/mekavector-common.toml`:
 
 ```toml
 [jetpack]
-    # Horizontal forward thrust while jetpacking. 0.0 = vanilla Mekanism.
-    forward_speed_boost = 2.0   # range 0.0..15.0
-    # Horizontal strafe thrust while jetpacking.
-    strafe_speed_boost = 0.0    # range 0.0..15.0
-    # Look-vector thrust strength while the Vector Thrust key is engaged.
-    vector_thrust = 0.5         # range 0.0..5.0
+    # Jetpack thrust per tick. Governs both NORMAL vertical climb and VECTOR thrust.
+    jetpack_thrust = 0.15        # range 0.0..1.0
+    # Fraction of current horizontal velocity added per tick while thrusting in
+    # NORMAL mode. 0.0 = no forward boost.
+    forward_boost_factor = 0.08  # range 0.0..0.5
     # false = hold the key; true = press to toggle.
     vector_keybind_toggle = false
 ```
 
-The vector-thrust **blend is a starting point** — expect to tune `vector_thrust`
-(and possibly the boosts) in-game until it feels like 1.21. The default blend is
-"replace vertical with the look vector's Y, keep existing horizontal, add the look
-vector's horizontal thrust" (see `VectorThrust.java`).
+**The defaults are 1.21's actual constants**, not tuning guesses: `0.15` is
+`ItemJetpack.getJetpackThrust()` and `0.08` is the horizontal coefficient in
+`IJetpackItem.handleJetpackMotion`. Leaving them alone gives 1.21 parity; they're
+exposed so you can deviate if you want to.
 
 ## Multiplayer / netcode
 
@@ -117,18 +128,13 @@ sprint and losing an independent toggle.
 
 ## How it works (mixins)
 
-- `HorizontalBoostMixin` → vanilla `LivingEntity#aiStep` (after `travel`): adds
-  yaw-rotated forward/strafe thrust (config is blocks/second, converted to
-  per-tick). Pure-vanilla injection site; only reads Mekanism statics, and gates
-  on Mekanism's *effective* mode (`getPlayerJetpackMode`) so it never fires while
-  walking.
 - `VectorThrustCommonMixin` / `VectorThrustClientMixin` → `@Redirect`s on Mekanism's
   server (`CommonPlayerTickHandler#tickEnd`) and client (`ClientTickHandler#tickStart`)
   tick handlers:
-  - `handleJetpackMotion` → substitute look-vector motion when vector is engaged
-    (Normal mode, `V`, Space not held); otherwise call the stock method unchanged,
-    so Hover and Space-thrust are untouched and Mekanism's vertical logic is never
-    frozen.
+  - `handleJetpackMotion` → substitute 1.21's motion math in Normal mode: vector
+    thrust along the up-axis when `V` is held (and Space isn't), otherwise 1.21's
+    velocity-proportional horizontal boost plus a self-limiting vertical. Hover and
+    fall-flying call the stock method unchanged.
   - `getPlayerJetpackMode` → turn `DISABLED` into `NORMAL` when vector is engaged.
     Mekanism gates the whole jetpack block on this returning non-`DISABLED` (which
     requires Space in Normal mode), so without this redirect `V`-only would never
